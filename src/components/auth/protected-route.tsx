@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import type { UserRole } from '@/lib/auth/utils'
@@ -294,28 +294,7 @@ export function useAuth() {
 
     const supabase = createClient()
 
-    useEffect(() => {
-        checkAuth()
-
-        const { data: { subscription } } = supabase.auth.onAuthStateChange(
-            async (event) => {
-                if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
-                    await checkAuth()
-                } else if (event === 'SIGNED_OUT') {
-                    setAuthState({
-                        isLoading: false,
-                        isAuthenticated: false,
-                        user: null,
-                        error: null
-                    })
-                }
-            }
-        )
-
-        return () => subscription.unsubscribe()
-    }, [])
-
-    const checkAuth = async () => {
+    const checkAuth = useCallback(async () => {
         try {
             setAuthState(prev => ({ ...prev, isLoading: true, error: null }))
 
@@ -372,7 +351,28 @@ export function useAuth() {
                 error: 'Authentication check failed'
             })
         }
-    }
+    }, [supabase])
+
+    useEffect(() => {
+        checkAuth()
+
+        const { data: { subscription } } = supabase.auth.onAuthStateChange(
+            async (event) => {
+                if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+                    await checkAuth()
+                } else if (event === 'SIGNED_OUT') {
+                    setAuthState({
+                        isLoading: false,
+                        isAuthenticated: false,
+                        user: null,
+                        error: null
+                    })
+                }
+            }
+        )
+
+        return () => subscription.unsubscribe()
+    }, [checkAuth, supabase.auth])
 
     const logout = async () => {
         try {
