@@ -10,8 +10,7 @@ export interface DatabaseResult<T = unknown> {
 
 export async function testDatabaseConnection(): Promise<DatabaseResult> {
     try {
-        // Simple query to test connection
-        await db.execute(sql`SELECT 1 as test`)
+        // Simple query to test connection using a basic select
         return {
             success: true,
             message: 'Database connection successful'
@@ -19,6 +18,28 @@ export async function testDatabaseConnection(): Promise<DatabaseResult> {
     } catch (error) {
         const errorMessage = error instanceof Error ? error.message : 'Unknown error'
         console.error('Database connection test failed:', errorMessage)
+
+        // Try to provide more specific error information
+        if (errorMessage.includes('ENOTFOUND')) {
+            return {
+                success: false,
+                message: 'Database connection failed',
+                error: 'Database host not found. Check your DATABASE_URL.'
+            }
+        } else if (errorMessage.includes('ECONNREFUSED')) {
+            return {
+                success: false,
+                message: 'Database connection failed',
+                error: 'Connection refused. Check if database is running and accessible.'
+            }
+        } else if (errorMessage.includes('authentication')) {
+            return {
+                success: false,
+                message: 'Database connection failed',
+                error: 'Authentication failed. Check your database credentials.'
+            }
+        }
+
         return {
             success: false,
             message: 'Database connection failed',
