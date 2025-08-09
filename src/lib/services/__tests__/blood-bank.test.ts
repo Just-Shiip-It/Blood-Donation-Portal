@@ -2,6 +2,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { BloodBankService } from '../blood-bank'
 import { db } from '@/lib/db'
+import { bloodInventorySchema } from '@/lib/db/schema'
 
 // Mock the database
 vi.mock('@/lib/db', () => ({

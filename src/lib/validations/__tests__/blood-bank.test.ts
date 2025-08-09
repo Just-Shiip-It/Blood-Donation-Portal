@@ -39,7 +39,8 @@ describe('Blood Bank Validation Schemas', () => {
                     street: '123 Main St',
                     city: 'New York',
                     state: 'NY',
-                    zipCode: '10001'
+                    zipCode: '10001',
+                    country: 'US'
                 },
                 phone: '555-123-4567',
                 email: 'invalid-email',
@@ -49,7 +50,8 @@ describe('Blood Bank Validation Schemas', () => {
             const result = bloodBankProfileSchema.safeParse(invalidProfile)
             expect(result.success).toBe(false)
             if (!result.success) {
-                expect(result.error.issues[0].path).toEqual(['email'])
+                const emailError = result.error.issues.find(issue => issue.path.includes('email'))
+                expect(emailError?.path).toEqual(['email'])
             }
         })
 
@@ -60,7 +62,8 @@ describe('Blood Bank Validation Schemas', () => {
                     street: '123 Main St',
                     city: 'New York',
                     state: 'NY',
-                    zipCode: '10001'
+                    zipCode: '10001',
+                    country: 'US'
                 },
                 phone: '555-123-4567',
                 email: 'contact@citybloodbank.com',
@@ -70,7 +73,8 @@ describe('Blood Bank Validation Schemas', () => {
             const result = bloodBankProfileSchema.safeParse(invalidProfile)
             expect(result.success).toBe(false)
             if (!result.success) {
-                expect(result.error.issues[0].path).toEqual(['capacity'])
+                const capacityError = result.error.issues.find(issue => issue.path.includes('capacity'))
+                expect(capacityError?.path).toEqual(['capacity'])
             }
         })
     })
@@ -87,7 +91,8 @@ describe('Blood Bank Validation Schemas', () => {
                         street: '123 Main St',
                         city: 'New York',
                         state: 'NY',
-                        zipCode: '10001'
+                        zipCode: '10001',
+                        country: 'US'
                     },
                     phone: '555-123-4567',
                     email: 'contact@citybloodbank.com',
@@ -110,7 +115,8 @@ describe('Blood Bank Validation Schemas', () => {
                         street: '123 Main St',
                         city: 'New York',
                         state: 'NY',
-                        zipCode: '10001'
+                        zipCode: '10001',
+                        country: 'US'
                     },
                     phone: '555-123-4567',
                     email: 'contact@citybloodbank.com',
@@ -121,7 +127,8 @@ describe('Blood Bank Validation Schemas', () => {
             const result = bloodBankRegistrationSchema.safeParse(invalidRegistration)
             expect(result.success).toBe(false)
             if (!result.success) {
-                expect(result.error.issues[0].path).toEqual(['confirmPassword'])
+                const passwordError = result.error.issues.find(issue => issue.path.includes('confirmPassword'))
+                expect(passwordError?.path).toEqual(['confirmPassword'])
             }
         })
     })
