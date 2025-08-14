@@ -140,15 +140,15 @@ export class SearchService {
         }
 
         // Apply conditions and sorting
-        let query: typeof baseQuery = baseQuery
+        let query = baseQuery
         if (conditions.length > 0) {
-            query = (baseQuery as any).where(and(...conditions))
+            query = baseQuery.where(and(...conditions)) as typeof baseQuery
         }
 
         // Apply sorting
         const sortColumn = this.getSortColumn('appointment', sortBy)
         if (sortColumn) {
-            query = (query as any).orderBy(sortDirection === 'asc' ? asc(sortColumn) : desc(sortColumn))
+            query = query.orderBy(sortDirection === 'asc' ? asc(sortColumn) : desc(sortColumn)) as typeof query
         }
 
         // Get total count for pagination
@@ -263,15 +263,15 @@ export class SearchService {
         }
 
         // Apply conditions and sorting
-        let query: typeof baseQuery = baseQuery
+        let query = baseQuery
         if (conditions.length > 0) {
-            query = (baseQuery as any).where(and(...conditions))
+            query = baseQuery.where(and(...conditions)) as typeof baseQuery
         }
 
         // Apply sorting
         const sortColumn = this.getSortColumn('blood-bank', sortBy)
         if (sortColumn) {
-            query = (query as any).orderBy(sortDirection === 'asc' ? asc(sortColumn) : desc(sortColumn))
+            query = query.orderBy(sortDirection === 'asc' ? asc(sortColumn) : desc(sortColumn)) as typeof query
         }
 
         // Get total count
@@ -394,15 +394,15 @@ export class SearchService {
         }
 
         // Apply conditions and sorting
-        let query: typeof baseQuery = baseQuery
+        let query = baseQuery
         if (conditions.length > 0) {
-            query = (baseQuery as any).where(and(...conditions))
+            query = baseQuery.where(and(...conditions)) as typeof baseQuery
         }
 
         // Apply sorting
         const sortColumn = this.getSortColumn('request', sortBy)
         if (sortColumn) {
-            query = (query as any).orderBy(sortDirection === 'asc' ? asc(sortColumn) : desc(sortColumn))
+            query = query.orderBy(sortDirection === 'asc' ? asc(sortColumn) : desc(sortColumn)) as typeof query
         }
 
         // Get total count
@@ -522,15 +522,15 @@ export class SearchService {
         }
 
         // Apply conditions and sorting
-        let query: typeof baseQuery = baseQuery
+        let query = baseQuery
         if (conditions.length > 0) {
-            query = (baseQuery as any).where(and(...conditions))
+            query = baseQuery.where(and(...conditions)) as typeof baseQuery
         }
 
         // Apply sorting
         const sortColumn = this.getSortColumn('donation', sortBy)
         if (sortColumn) {
-            query = (query as any).orderBy(sortDirection === 'asc' ? asc(sortColumn) : desc(sortColumn))
+            query = query.orderBy(sortDirection === 'asc' ? asc(sortColumn) : desc(sortColumn)) as typeof query
         }
 
         // Get total count

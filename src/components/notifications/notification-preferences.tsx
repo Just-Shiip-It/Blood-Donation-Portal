@@ -3,212 +3,269 @@
 import { useState, useEffect } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Switch } from '@/components/ui/switch'
-import { Label } from '@/components/ui/label'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Button } from '@/components/ui/button'
+import { Label } from '@/components/ui/label'
+import { Bell, Smartphone } from 'lucide-react'
+import { PushNotificationService } from '@/lib/services/push-notifications'
 import { toast } from '@/hooks/use-toast'
-import { NotificationPreferences } from '@/lib/services/notification'
 
-interface NotificationPreferencesProps {
-    userId: string
-    initialPreferences?: NotificationPreferences
+interface NotificationPreferences {
+    pushEnabled: boolean
+    urgentRequests: boolean
+    appointmentReminders: boolean
+    donationEligible: boolean
+    inventoryAlerts: boolean
+    appointmentConfirmations: boolean
 }
 
-export function NotificationPreferencesComponent({ userId, initialPreferences }: NotificationPreferencesProps) {
-    const [preferences, setPreferences] = useState<NotificationPreferences>(
-        initialPreferences || {
-            email: true,
-            sms: false,
-            push: true,
-            reminderHours: 24
-        }
-    )
+export function NotificationPreferences() {
+    const [preferences, setPreferences] = useState<NotificationPreferences>({
+        pushEnabled: false,
+        urgentRequests: true,
+        appointmentReminders: true,
+        donationEligible: true,
+        inventoryAlerts: false,
+        appointmentConfirmations: true
+    })
     const [isLoading, setIsLoading] = useState(false)
-    const [isSaving, setIsSaving] = useState(false)
+    const [isSupported, setIsSupported] = useState(false)
 
     useEffect(() => {
-        if (!initialPreferences) {
-            loadPreferences()
-        }
-    }, [userId, initialPreferences]) // eslint-disable-line react-hooks/exhaustive-deps
+        const checkSupport = async () => {
+            const supported = 'serviceWorker' in navigator && 'PushManager' in window
+            setIsSupported(supported)
 
-    const loadPreferences = async () => {
-        setIsLoading(true)
-        try {
-            const response = await fetch(`/api/notifications/preferences?userId=${userId}`)
-            if (response.ok) {
-                const data = await response.json()
-                setPreferences(data.preferences)
+            if (supported) {
+                const pushService = PushNotificationService.getInstance()
+                const subscription = await pushService.getSubscription()
+                setPreferences(prev => ({
+                    ...prev,
+                    pushEnabled: !!subscription
+                }))
             }
-        } catch (error) {
-            console.error('Failed to load preferences:', error)
+        }
+
+        checkSupport()
+        loadPreferences()
+    }, [])
+
+    const loadPreferences = () => {
+        const saved = localStorage.getItem('notification-preferences')
+        if (saved) {
+            try {
+                const parsed = JSON.parse(saved)
+                setPreferences(prev => ({ ...prev, ...parsed }))
+            } catch (error) {
+                console.error('Failed to load notification preferences:', error)
+            }
+        }
+    }
+
+    const savePreferences = (newPreferences: NotificationPreferences) => {
+        localStorage.setItem('notification-preferences', JSON.stringify(newPreferences))
+        setPreferences(newPreferences)
+    }
+
+    const handlePushToggle = async (enabled: boolean) => {
+        if (!isSupported) {
             toast({
-                title: 'Error',
-                description: 'Failed to load notification preferences',
-                variant: 'destructive'
+                title: "Not Supported",
+                description: "Push notifications are not supported on this device.",
+                variant: "destructive"
+            })
+            return
+        }
+
+        setIsLoading(true)
+        const pushService = PushNotificationService.getInstance()
+
+        try {
+            if (enabled) {
+                const permission = await pushService.requestPermission()
+
+                if (permission === 'granted') {
+                    await pushService.subscribe()
+                    toast({
+                        title: "Notifications Enabled",
+                        description: "You'll now receive push notifications for important updates."
+                    })
+                } else {
+                    toast({
+                        title: "Permission Denied",
+                        description: "Please enable notifications in your browser settings.",
+                        variant: "destructive"
+                    })
+                    enabled = false
+                }
+            } else {
+                await pushService.unsubscribe()
+                toast({
+                    title: "Notifications Disabled",
+                    description: "You won't receive push notifications anymore."
+                })
+            }
+
+            savePreferences({ ...preferences, pushEnabled: enabled })
+        } catch (error) {
+            console.error('Failed to toggle push notifications:', error)
+            toast({
+                title: "Error",
+                description: "Failed to update notification settings. Please try again.",
+                variant: "destructive"
             })
         } finally {
             setIsLoading(false)
         }
     }
 
-    const savePreferences = async () => {
-        setIsSaving(true)
-        try {
-            const response = await fetch('/api/notifications/preferences', {
-                method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    userId,
-                    preferences
-                })
-            })
+    const handlePreferenceChange = (key: keyof NotificationPreferences, value: boolean) => {
+        const newPreferences = { ...preferences, [key]: value }
+        savePreferences(newPreferences)
+    }
 
-            if (response.ok) {
-                toast({
-                    title: 'Success',
-                    description: 'Notification preferences updated successfully'
-                })
-            } else {
-                throw new Error('Failed to save preferences')
-            }
-        } catch (error) {
-            console.error('Failed to save preferences:', error)
+    const testNotification = async () => {
+        if (!preferences.pushEnabled) {
             toast({
-                title: 'Error',
-                description: 'Failed to save notification preferences',
-                variant: 'destructive'
+                title: "Enable Notifications",
+                description: "Please enable push notifications first.",
+                variant: "destructive"
             })
-        } finally {
-            setIsSaving(false)
+            return
         }
-    }
 
-    const updatePreference = (key: keyof NotificationPreferences, value: boolean | number) => {
-        setPreferences(prev => ({
-            ...prev,
-            [key]: value
-        }))
-    }
-
-    if (isLoading) {
-        return (
-            <Card>
-                <CardHeader>
-                    <CardTitle>Notification Preferences</CardTitle>
-                    <CardDescription>Loading your notification settings...</CardDescription>
-                </CardHeader>
-            </Card>
-        )
+        const pushService = PushNotificationService.getInstance()
+        await pushService.showNotification({
+            title: "Test Notification",
+            body: "This is a test notification from Blood Donation Portal",
+            tag: "test"
+        })
     }
 
     return (
-        <Card>
-            <CardHeader>
-                <CardTitle>Notification Preferences</CardTitle>
-                <CardDescription>
-                    Choose how you&apos;d like to receive notifications about appointments and urgent blood requests
-                </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-                <div className="space-y-4">
+        <div className="space-y-6">
+            <Card>
+                <CardHeader>
+                    <CardTitle className="flex items-center space-x-2">
+                        <Bell className="h-5 w-5" />
+                        <span>Push Notifications</span>
+                    </CardTitle>
+                    <CardDescription>
+                        Receive real-time notifications for important updates and reminders
+                    </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
                     <div className="flex items-center justify-between">
                         <div className="space-y-0.5">
-                            <Label htmlFor="email-notifications">Email Notifications</Label>
+                            <Label className="text-base">Enable Push Notifications</Label>
                             <p className="text-sm text-muted-foreground">
-                                Receive appointment confirmations and reminders via email
+                                {isSupported
+                                    ? "Receive notifications even when the app is closed"
+                                    : "Not supported on this device"
+                                }
                             </p>
                         </div>
                         <Switch
-                            id="email-notifications"
-                            checked={preferences.email}
-                            onCheckedChange={(checked: boolean) => updatePreference('email', checked)}
+                            checked={preferences.pushEnabled}
+                            onCheckedChange={handlePushToggle}
+                            disabled={!isSupported || isLoading}
                         />
                     </div>
 
-                    <div className="flex items-center justify-between">
-                        <div className="space-y-0.5">
-                            <Label htmlFor="sms-notifications">SMS Notifications</Label>
-                            <p className="text-sm text-muted-foreground">
-                                Receive text message reminders and urgent alerts
-                            </p>
-                        </div>
-                        <Switch
-                            id="sms-notifications"
-                            checked={preferences.sms}
-                            onCheckedChange={(checked: boolean) => updatePreference('sms', checked)}
-                        />
-                    </div>
+                    {preferences.pushEnabled && (
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={testNotification}
+                            className="w-full sm:w-auto"
+                        >
+                            <Smartphone className="h-4 w-4 mr-2" />
+                            Test Notification
+                        </Button>
+                    )}
+                </CardContent>
+            </Card>
 
-                    <div className="flex items-center justify-between">
-                        <div className="space-y-0.5">
-                            <Label htmlFor="push-notifications">Push Notifications</Label>
-                            <p className="text-sm text-muted-foreground">
-                                Receive browser notifications for urgent blood requests
-                            </p>
-                        </div>
-                        <Switch
-                            id="push-notifications"
-                            checked={preferences.push}
-                            onCheckedChange={(checked: boolean) => updatePreference('push', checked)}
-                        />
-                    </div>
-                </div>
-
-                <div className="space-y-2">
-                    <Label htmlFor="reminder-timing">Appointment Reminder Timing</Label>
-                    <Select
-                        value={preferences.reminderHours.toString()}
-                        onValueChange={(value) => updatePreference('reminderHours', parseInt(value))}
-                    >
-                        <SelectTrigger>
-                            <SelectValue placeholder="Select reminder timing" />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="2">2 hours before</SelectItem>
-                            <SelectItem value="6">6 hours before</SelectItem>
-                            <SelectItem value="12">12 hours before</SelectItem>
-                            <SelectItem value="24">24 hours before</SelectItem>
-                            <SelectItem value="48">48 hours before</SelectItem>
-                        </SelectContent>
-                    </Select>
-                    <p className="text-sm text-muted-foreground">
-                        How far in advance would you like to receive appointment reminders?
-                    </p>
-                </div>
-
-                <div className="pt-4 border-t">
-                    <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
-                        <div className="flex items-start">
-                            <div className="flex-shrink-0">
-                                <svg className="h-5 w-5 text-amber-400" viewBox="0 0 20 20" fill="currentColor">
-                                    <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-                                </svg>
-                            </div>
-                            <div className="ml-3">
-                                <h3 className="text-sm font-medium text-amber-800">
-                                    Emergency Notifications
-                                </h3>
-                                <p className="mt-1 text-sm text-amber-700">
-                                    You will always receive critical emergency blood request notifications regardless of these settings, as they are essential for life-saving situations.
+            <Card>
+                <CardHeader>
+                    <CardTitle>Notification Types</CardTitle>
+                    <CardDescription>
+                        Choose which types of notifications you want to receive
+                    </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                    <div className="space-y-4">
+                        <div className="flex items-center justify-between">
+                            <div className="space-y-0.5">
+                                <Label className="text-base">Urgent Blood Requests</Label>
+                                <p className="text-sm text-muted-foreground">
+                                    Critical blood shortage alerts for your blood type
                                 </p>
                             </div>
+                            <Switch
+                                checked={preferences.urgentRequests}
+                                onCheckedChange={(value) => handlePreferenceChange('urgentRequests', value)}
+                                disabled={!preferences.pushEnabled}
+                            />
+                        </div>
+
+                        <div className="flex items-center justify-between">
+                            <div className="space-y-0.5">
+                                <Label className="text-base">Appointment Reminders</Label>
+                                <p className="text-sm text-muted-foreground">
+                                    Reminders for upcoming donation appointments
+                                </p>
+                            </div>
+                            <Switch
+                                checked={preferences.appointmentReminders}
+                                onCheckedChange={(value) => handlePreferenceChange('appointmentReminders', value)}
+                                disabled={!preferences.pushEnabled}
+                            />
+                        </div>
+
+                        <div className="flex items-center justify-between">
+                            <div className="space-y-0.5">
+                                <Label className="text-base">Donation Eligibility</Label>
+                                <p className="text-sm text-muted-foreground">
+                                    When you become eligible to donate again
+                                </p>
+                            </div>
+                            <Switch
+                                checked={preferences.donationEligible}
+                                onCheckedChange={(value) => handlePreferenceChange('donationEligible', value)}
+                                disabled={!preferences.pushEnabled}
+                            />
+                        </div>
+
+                        <div className="flex items-center justify-between">
+                            <div className="space-y-0.5">
+                                <Label className="text-base">Appointment Confirmations</Label>
+                                <p className="text-sm text-muted-foreground">
+                                    Confirmations when appointments are booked or changed
+                                </p>
+                            </div>
+                            <Switch
+                                checked={preferences.appointmentConfirmations}
+                                onCheckedChange={(value) => handlePreferenceChange('appointmentConfirmations', value)}
+                                disabled={!preferences.pushEnabled}
+                            />
+                        </div>
+
+                        <div className="flex items-center justify-between">
+                            <div className="space-y-0.5">
+                                <Label className="text-base">Inventory Alerts</Label>
+                                <p className="text-sm text-muted-foreground">
+                                    Blood bank inventory updates (for blood bank staff)
+                                </p>
+                            </div>
+                            <Switch
+                                checked={preferences.inventoryAlerts}
+                                onCheckedChange={(value) => handlePreferenceChange('inventoryAlerts', value)}
+                                disabled={!preferences.pushEnabled}
+                            />
                         </div>
                     </div>
-                </div>
-
-                <div className="flex justify-end">
-                    <Button
-                        onClick={savePreferences}
-                        disabled={isSaving}
-                        className="min-w-[120px]"
-                    >
-                        {isSaving ? 'Saving...' : 'Save Preferences'}
-                    </Button>
-                </div>
-            </CardContent>
-        </Card>
+                </CardContent>
+            </Card>
+        </div>
     )
 }
