@@ -5,6 +5,7 @@ import { QueryProvider } from "@/components/providers/query-provider";
 import { ThemeProvider } from "@/components/providers/theme-provider";
 import { AuthProvider } from "@/components/providers/auth-provider";
 import { Toaster } from "@/components/ui/sonner";
+// import { PerformanceInitializer } from "@/components/performance-initializer";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -74,6 +75,7 @@ export default function RootLayout({
             <AuthProvider>
               {children}
               <Toaster />
+              {/* <PerformanceInitializer /> */}
             </AuthProvider>
           </QueryProvider>
         </ThemeProvider>
