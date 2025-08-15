@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Badge } from '@/components/ui/badge'
@@ -41,13 +41,7 @@ export function BloodBankAdminDashboard({ bloodBankId }: BloodBankAdminDashboard
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState<string | null>(null)
 
-    useEffect(() => {
-        if (bloodBankId) {
-            fetchBloodBankData()
-        }
-    }, [bloodBankId])
-
-    const fetchBloodBankData = async () => {
+    const fetchBloodBankData = useCallback(async () => {
         try {
             setLoading(true)
 
@@ -64,7 +58,13 @@ export function BloodBankAdminDashboard({ bloodBankId }: BloodBankAdminDashboard
         } finally {
             setLoading(false)
         }
-    }
+    }, [bloodBankId])
+
+    useEffect(() => {
+        if (bloodBankId) {
+            fetchBloodBankData()
+        }
+    }, [bloodBankId, fetchBloodBankData])
 
     if (loading) {
         return (

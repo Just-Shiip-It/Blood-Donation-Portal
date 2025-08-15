@@ -1,6 +1,7 @@
 import { type NextRequest, NextResponse } from 'next/server'
 import { updateSession } from '@/lib/supabase/middleware'
 import { createServerClient } from '@supabase/ssr'
+import { applySecurityHeaders, DEFAULT_SECURITY_HEADERS } from '@/lib/security/headers'
 
 // Define protected routes and their required roles
 const PROTECTED_ROUTES = {
@@ -26,20 +27,68 @@ const PUBLIC_ROUTES = [
     '/contact'
 ]
 
-export async function middleware(request: NextRequest) {
-    // First, update the session
-    const supabaseResponse = await updateSession(request)
+// Simple rate limiting store
+const rateLimitStore = new Map<string, { count: number; resetTime: number }>()
 
+function simpleRateLimit(ip: string, maxRequests: number = 100, windowMs: number = 60000): boolean {
+    const now = Date.now()
+    const key = `rate_limit:${ip}`
+    const current = rateLimitStore.get(key)
+
+    if (!current || now > current.resetTime) {
+        // First request or window has reset
+        rateLimitStore.set(key, { count: 1, resetTime: now + windowMs })
+        return true // Allow request
+    }
+
+    if (current.count >= maxRequests) {
+        return false // Rate limit exceeded
+    }
+
+    // Increment counter
+    current.count++
+    rateLimitStore.set(key, current)
+
+    return true // Allow request
+}
+
+export async function middleware(request: NextRequest) {
     const { pathname } = request.nextUrl
 
-    // Skip middleware for API routes, static files, and public routes
+    // Apply basic rate limiting for API routes
+    if (pathname.startsWith('/api/')) {
+        const ip = request.headers.get('x-forwarded-for')?.split(',')[0] || 'unknown'
+
+        if (!simpleRateLimit(ip)) {
+            return NextResponse.json(
+                {
+                    success: false,
+                    error: {
+                        code: 'RATE_LIMIT_EXCEEDED',
+                        message: 'Too many requests'
+                    }
+                },
+                { status: 429 }
+            )
+        }
+
+        // Apply security headers to API responses
+        const response = NextResponse.next()
+        applySecurityHeaders(response, DEFAULT_SECURITY_HEADERS)
+        return response
+    }
+
+    // Apply basic security headers to all non-API routes
+    const response = await updateSession(request)
+    applySecurityHeaders(response, DEFAULT_SECURITY_HEADERS)
+
+    // Skip authentication for static files and public routes
     if (
-        pathname.startsWith('/api/') ||
         pathname.startsWith('/_next/') ||
         pathname.includes('.') ||
         PUBLIC_ROUTES.includes(pathname)
     ) {
-        return supabaseResponse
+        return response
     }
 
     // Create Supabase client for middleware
@@ -81,7 +130,8 @@ export async function middleware(request: NextRequest) {
         }
     }
 
-    return supabaseResponse
+    applySecurityHeaders(response, DEFAULT_SECURITY_HEADERS)
+    return response
 }
 
 function getRequiredRoles(pathname: string): string[] {

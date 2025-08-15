@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -71,11 +71,7 @@ export function AuditLogViewer() {
     const [resourceFilter, setResourceFilter] = useState('')
     const [dateRange, setDateRange] = useState('7') // days
 
-    useEffect(() => {
-        fetchAuditData()
-    }, [actionFilter, resourceFilter, dateRange])
-
-    const fetchAuditData = async () => {
+    const fetchAuditData = useCallback(async () => {
         try {
             setLoading(true)
 
@@ -114,7 +110,11 @@ export function AuditLogViewer() {
         } finally {
             setLoading(false)
         }
-    }
+    }, [actionFilter, resourceFilter, dateRange])
+
+    useEffect(() => {
+        fetchAuditData()
+    }, [fetchAuditData])
 
     const getActionBadgeVariant = (action: string) => {
         switch (action.toLowerCase()) {

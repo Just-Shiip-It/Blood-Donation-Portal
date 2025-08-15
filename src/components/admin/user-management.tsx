@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -45,11 +45,7 @@ export function UserManagement() {
     const [showDeleteDialog, setShowDeleteDialog] = useState(false)
     const [actionLoading, setActionLoading] = useState(false)
 
-    useEffect(() => {
-        fetchUsers()
-    }, [roleFilter, statusFilter])
-
-    const fetchUsers = async () => {
+    const fetchUsers = useCallback(async () => {
         try {
             setLoading(true)
 
@@ -70,7 +66,11 @@ export function UserManagement() {
         } finally {
             setLoading(false)
         }
-    }
+    }, [roleFilter, statusFilter])
+
+    useEffect(() => {
+        fetchUsers()
+    }, [fetchUsers])
 
     const handleEditUser = async (updates: Partial<User>) => {
         if (!selectedUser) return
