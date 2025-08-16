@@ -220,6 +220,30 @@ export class TestDataManager {
         return request
     }
 
+    async createTestDonation(donorId: string, bloodBankId: string, appointmentId: string, donationData?: Partial<{
+        donationDate: Date
+        bloodType: string
+        unitsCollected: number
+        healthMetrics: any
+        notes: string
+    }>) {
+        const [donation] = await db.insert(donationHistorySchema)
+            .values({
+                donorId,
+                bloodBankId,
+                appointmentId,
+                donationDate: donationData?.donationDate ?? new Date(),
+                bloodType: donationData?.bloodType ?? 'O+',
+                unitsCollected: donationData?.unitsCollected ?? 1,
+                healthMetrics: donationData?.healthMetrics,
+                notes: donationData?.notes
+            })
+            .returning()
+
+        this.createdDonations.push(donation.id)
+        return donation
+    }
+
     async cleanup() {
         try {
             // Clean up in reverse order of dependencies
@@ -228,9 +252,12 @@ export class TestDataManager {
                     .where(eq(notificationLogSchema.id, this.createdNotifications[0]))
             }
 
+            // Delete donations first (they reference appointments)
             if (this.createdDonations.length > 0) {
-                await db.delete(donationHistorySchema)
-                    .where(eq(donationHistorySchema.id, this.createdDonations[0]))
+                for (const donationId of this.createdDonations) {
+                    await db.delete(donationHistorySchema)
+                        .where(eq(donationHistorySchema.id, donationId))
+                }
             }
 
             if (this.createdRequests.length > 0) {
@@ -240,16 +267,13 @@ export class TestDataManager {
                 }
             }
 
+            // Delete appointments after donations
             if (this.createdAppointments.length > 0) {
                 for (const appointmentId of this.createdAppointments) {
                     await db.delete(appointmentSchema)
                         .where(eq(appointmentSchema.id, appointmentId))
                 }
             }
-
-            // Clean up inventory
-            await db.delete(bloodInventorySchema)
-                .where(eq(bloodInventorySchema.bloodBankId, this.createdBloodBanks[0] ?? ''))
 
             if (this.createdDonors.length > 0) {
                 for (const donorId of this.createdDonors) {
@@ -262,6 +286,14 @@ export class TestDataManager {
                 for (const facilityId of this.createdFacilities) {
                     await db.delete(healthcareFacilitySchema)
                         .where(eq(healthcareFacilitySchema.id, facilityId))
+                }
+            }
+
+            // Clean up inventory before blood banks
+            if (this.createdBloodBanks.length > 0) {
+                for (const bloodBankId of this.createdBloodBanks) {
+                    await db.delete(bloodInventorySchema)
+                        .where(eq(bloodInventorySchema.bloodBankId, bloodBankId))
                 }
             }
 
